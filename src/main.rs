@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use bevy::prelude::*;
 use bevy_aseprite_ultra::prelude::*;
-use bevy_aseprite_ultra::prelude::AnimationState as AseFrameState;
 
 #[derive(Component)]
 struct Player;
@@ -35,7 +34,7 @@ struct AnimationClip {
 struct AnimationMap(HashMap<(Facing, AnimationState), AnimationClip>);
 
 const BASE: &str = "pixel-crawler/Entities/Characters/Body_A/Animations";
-const SPEED: f32 = 200.0; // pixels per second
+const SPEED: f32 = 300.0; // pixels per second
 
 fn setup(mut commands: Commands, server: Res<AssetServer>) {
     commands.spawn(Camera2d);
@@ -102,17 +101,26 @@ fn control_player(
 
         let mut dir = Vec2::ZERO;
 
-        let desired = if keyboard.pressed(KeyCode::KeyW) {
+        if keyboard.pressed(KeyCode::KeyW) {
             dir.y += 1.0;
+        }
+        if keyboard.pressed(KeyCode::KeyS) {
+            dir.y -= 1.0;
+        }
+        if keyboard.pressed(KeyCode::KeyA) {
+            dir.x -= 1.0;
+        }
+        if keyboard.pressed(KeyCode::KeyD) {
+            dir.x += 1.0;
+        }
+
+        let desired = if keyboard.pressed(KeyCode::KeyW) {
             Some(Facing::Up)
         } else if keyboard.pressed(KeyCode::KeyS) {
-            dir.y -= 1.0;
             Some(Facing::Down)
         } else if keyboard.pressed(KeyCode::KeyA) {
-            dir.x -= 1.0;
             Some(Facing::Left)
         } else if keyboard.pressed(KeyCode::KeyD) {
-            dir.x += 1.0;
             Some(Facing::Right)
         } else {
             None
@@ -135,7 +143,10 @@ fn control_player(
     }
 }
 
-fn end_animation(mut events: MessageReader<AnimationEvents>, mut query: Query<&mut AnimationState>) {
+fn end_animation(
+    mut events: MessageReader<AnimationEvents>,
+    mut query: Query<&mut AnimationState>,
+) {
     for event in events.read() {
         let AnimationEvents::Finished(entity) = event else {
             continue;
