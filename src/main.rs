@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use bevy::prelude::*;
 use bevy_aseprite_ultra::prelude::*;
+use bevy_aseprite_ultra::prelude::AnimationState as AseFrameState;
 
 #[derive(Component)]
 struct Player;
@@ -57,9 +58,9 @@ fn setup(mut commands: Commands, server: Res<AssetServer>) {
                         Facing::Up => "Up",
                     };
                     let animation = match state {
-                        AnimationState::Pierce => {
-                            Animation::default().with_repeat(AnimationRepeat::Count(0))
-                        }
+                        AnimationState::Pierce => Animation::default()
+                            .with_repeat(AnimationRepeat::Count(0))
+                            .with_speed(2.0),
                         AnimationState::Idle | AnimationState::Walk => Animation::default(),
                     };
                     map.insert(
@@ -134,10 +135,7 @@ fn control_player(
     }
 }
 
-fn end_pierce(
-    mut events: MessageReader<AnimationEvents>,
-    mut query: Query<&mut AnimationState, With<Player>>,
-) {
+fn end_animation(mut events: MessageReader<AnimationEvents>, mut query: Query<&mut AnimationState>) {
     for event in events.read() {
         let AnimationEvents::Finished(entity) = event else {
             continue;
@@ -145,20 +143,21 @@ fn end_pierce(
         let Ok(mut anim_state) = query.get_mut(*entity) else {
             continue;
         };
-        if *anim_state == AnimationState::Pierce {
-            *anim_state = AnimationState::Idle;
-        }
+        *anim_state = AnimationState::Idle;
     }
 }
 
 fn control_animation(
-    mut query: Query<(
-        &Facing,
-        &AnimationState,
-        &mut AseAnimation,
-        &mut Sprite,
-        &AnimationMap,
-    )>,
+    mut query: Query<
+        (
+            &Facing,
+            &AnimationState,
+            &mut AseAnimation,
+            &mut Sprite,
+            &AnimationMap,
+        ),
+        Changed<AnimationState>,
+    >,
 ) {
     for (facing, anim_state, mut ase, mut sprite, map) in &mut query {
         let Some(clip) = map.0.get(&(facing.clone(), anim_state.clone())) else {
@@ -177,7 +176,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(
             Update,
-            (end_pierce, control_player, control_animation).chain(),
+            (end_animation, control_player, control_animation).chain(),
         )
         .run();
 }
