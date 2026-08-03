@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use bevy::prelude::*;
 use bevy_aseprite_ultra::prelude::*;
+use bevy_ecs_tilemap::prelude::*;
 
 #[derive(Component)]
 struct Player;
@@ -36,11 +37,53 @@ struct AnimationMap(HashMap<(Facing, AnimationState), AnimationClip>);
 const BASE: &str = "pixel-crawler/Entities/Characters/Body_A/Animations";
 const SPEED: f32 = 300.0; // pixels per second
 
-fn setup(mut commands: Commands, server: Res<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
+
+    let texture_handle: Handle<Image> = asset_server.load("pixel-crawler/Environment/Tilesets//Dungeon_Tiles.png");
+
+    let map_size = TilemapSize { x: 320, y: 320 };
+    let mut tile_storage = TileStorage::empty(map_size);
+    let tilemap_entity = commands.spawn_empty().id();
+
+    for x in 0..320u32 {
+        for y in 0..320u32 {
+            let tile_pos = TilePos { x, y };
+            let tile_entity = commands
+                .spawn((
+                    TileBundle {
+                        position: tile_pos,
+                        tilemap_id: TilemapId(tilemap_entity),
+                        texture_index: TileTextureIndex(30),
+                        ..Default::default()
+                    },
+                    // PostUpdate::default(),
+                ))
+                .id();
+            tile_storage.set(&tile_pos, tile_entity);
+        }
+    }
+
+    let tile_size = TilemapTileSize { x: 16.0, y: 16.0 };
+    let grid_size = tile_size.into();
+    let map_type = TilemapType::default();
+
+    commands.entity(tilemap_entity).insert(TilemapBundle {
+        grid_size,
+        map_type,
+        size: map_size,
+        storage: tile_storage,
+        texture: TilemapTexture::Single(texture_handle),
+        tile_size,
+        anchor: TilemapAnchor::Center,
+        transform: Transform::from_scale(Vec3::splat(2.0)),
+        ..Default::default()
+    });
+
+
     commands.spawn((
         Player,
-        Transform::default(),
+        Transform::from_xyz(0.0, 0.0, 1.0),
         Facing::Down,
         AnimationState::Idle,
         AnimationMap({
@@ -66,7 +109,7 @@ fn setup(mut commands: Commands, server: Res<AssetServer>) {
                         (facing, state),
                         AnimationClip {
                             anim: AseAnimation {
-                                aseprite: server.load(format!(
+                                aseprite: asset_server.load(format!(
                                     "{BASE}/{state}_Base/{state}_{sprite_name}.aseprite"
                                 )),
                                 animation,
@@ -79,7 +122,7 @@ fn setup(mut commands: Commands, server: Res<AssetServer>) {
             map
         }),
         AseAnimation {
-            aseprite: server.load(format!("{BASE}/Idle_Base/Idle_Down.aseprite")),
+            aseprite: asset_server.load(format!("{BASE}/Idle_Base/Idle_Down.aseprite")),
             animation: Animation::default(),
         },
         Sprite {
@@ -184,6 +227,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_plugins(AsepriteUltraPlugin)
+        .add_plugins(TilemapPlugin)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
